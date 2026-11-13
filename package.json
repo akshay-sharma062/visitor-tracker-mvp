@@ -1,0 +1,15 @@
+{
+  "name": "visitor-tracker-mvp",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create visitor-tracker-db",
+    "db:init": "wrangler d1 execute visitor-tracker-db --remote --file=./schema.sql",
+    "db:init:local": "wrangler d1 execute visitor-tracker-db --local --file=./schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

@@ -1,0 +1,12 @@
+name = "visitor-tracker"
+main = "src/index.js"
+compatibility_date = "2026-11-13"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "visitor-tracker-db"
+database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
