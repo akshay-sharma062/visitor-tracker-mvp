@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS visits (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id TEXT NOT NULL,
   visitor_id TEXT NOT NULL,
+  session_id TEXT,
+  event_type TEXT NOT NULL DEFAULT 'pageview',
+  event_id TEXT,
   ip_address TEXT,
   device TEXT,
   browser TEXT,
@@ -36,3 +39,9 @@ CREATE INDEX IF NOT EXISTS idx_visits_project_ip
   ON visits(project_id, ip_address);
 CREATE INDEX IF NOT EXISTS idx_visits_project_visitor
   ON visits(project_id, visitor_id);
+CREATE INDEX IF NOT EXISTS idx_visits_project_session
+  ON visits(project_id, session_id);
+CREATE INDEX IF NOT EXISTS idx_visits_project_type
+  ON visits(project_id, event_type);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_visits_project_event
+  ON visits(project_id, event_id) WHERE event_id IS NOT NULL;

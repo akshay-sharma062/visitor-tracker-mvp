@@ -78,6 +78,32 @@ function safeText(value, max = 500) {
   return typeof value === "string" ? value.slice(0, max) : "";
 }
 
+function originsMatch(a, b) {
+  if (!a || !b) return false;
+  try {
+    const uA = new URL(a.startsWith("http") ? a : "https://" + a);
+    const uB = new URL(b.startsWith("http") ? b : "https://" + b);
+    const hostA = uA.hostname.replace(/^www\./i, "").toLowerCase();
+    const hostB = uB.hostname.replace(/^www\./i, "").toLowerCase();
+    return uA.protocol === uB.protocol && hostA === hostB && (uA.port || "") === (uB.port || "");
+  } catch {
+    return a.replace(/\/+$/, "").toLowerCase() === b.replace(/\/+$/, "").toLowerCase();
+  }
+}
+
+function timingSafeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const enc = new TextEncoder();
+  const bufA = enc.encode(a);
+  const bufB = enc.encode(b);
+  if (bufA.byteLength !== bufB.byteLength) return false;
+  let diff = 0;
+  for (let i = 0; i < bufA.byteLength; i++) {
+    diff |= bufA[i] ^ bufB[i];
+  }
+  return diff === 0;
+}
+
 async function requireAdmin(request, env) {
   const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   const payload = await verify(token, env.SESSION_SECRET);
@@ -93,17 +119,20 @@ const trackerJS = String.raw`
   if (!projectId) return;
 
   var endpoint = current.src ? new URL("/collect", current.src).href : "/collect";
-  var storageKey = "vt_visitor_" + projectId;
+  var scriptEventType = current.getAttribute("data-event-type");
+
+  // 1. Persistent Visitor ID (Cookie + localStorage)
+  var visitorKey = "vt_visitor_" + projectId;
   var visitorId = null;
 
   try {
-    var match = document.cookie.match(new RegExp("(?:^|; )" + storageKey + "=([^;]*)"));
-    visitorId = match ? decodeURIComponent(match[1]) : null;
+    var matchV = document.cookie.match(new RegExp("(?:^|; )" + visitorKey + "=([^;]*)"));
+    visitorId = matchV ? decodeURIComponent(matchV[1]) : null;
   } catch (_) {}
 
   if (!visitorId) {
     try {
-      visitorId = localStorage.getItem(storageKey);
+      visitorId = localStorage.getItem(visitorKey);
     } catch (_) {}
   }
 
@@ -114,36 +143,178 @@ const trackerJS = String.raw`
       visitorId = "v-" + Date.now().toString(36) + "-" +
         Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     }
+  }
+
+  // Ensure visitorId is synchronized across both cookie and localStorage
+  try {
+    var sec = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = visitorKey + "=" + encodeURIComponent(visitorId) +
+      "; path=/; max-age=31536000; SameSite=Lax" + sec;
+  } catch (_) {}
+  try {
+    localStorage.setItem(visitorKey, visitorId);
+  } catch (_) {}
+
+  // 2. Session ID (sessionStorage + session cookie)
+  var sessionKey = "vt_session_" + projectId;
+  var sessionId = null;
+
+  try {
+    sessionId = sessionStorage.getItem(sessionKey);
+  } catch (_) {}
+
+  if (!sessionId) {
     try {
-      var secureFlag = location.protocol === "https:" ? "; Secure" : "";
-      document.cookie = storageKey + "=" + encodeURIComponent(visitorId) +
-        "; path=/; max-age=31536000; SameSite=Lax" + secureFlag;
-    } catch (_) {}
-    try {
-      localStorage.setItem(storageKey, visitorId);
+      var matchS = document.cookie.match(new RegExp("(?:^|; )" + sessionKey + "=([^;]*)"));
+      sessionId = matchS ? decodeURIComponent(matchS[1]) : null;
     } catch (_) {}
   }
 
-  var payload = {
-    projectId: projectId,
-    visitorId: visitorId,
-    pageUrl: location.href,
-    referrer: document.referrer || "",
-    screen: (screen.width || 0) + "x" + (screen.height || 0),
-    utm_source: new URLSearchParams(location.search).get("utm_source") || "",
-    utm_medium: new URLSearchParams(location.search).get("utm_medium") || "",
-    utm_campaign: new URLSearchParams(location.search).get("utm_campaign") || ""
-  };
+  if (!sessionId) {
+    if (window.crypto && crypto.randomUUID) {
+      sessionId = crypto.randomUUID();
+    } else {
+      sessionId = "s-" + Date.now().toString(36) + "-" +
+        Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    }
+  }
 
   try {
-    fetch(endpoint, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=UTF-8" },
-      body: JSON.stringify(payload),
-      keepalive: true
-    }).catch(function () {});
+    sessionStorage.setItem(sessionKey, sessionId);
   } catch (_) {}
+  try {
+    var secS = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = sessionKey + "=" + encodeURIComponent(sessionId) +
+      "; path=/; max-age=1800; SameSite=Lax" + secS;
+  } catch (_) {}
+
+  // 3. Reusable Beacon Sender
+  function sendBeacon(eventType, extra) {
+    var eventId = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : ("e-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
+
+    var payload = {
+      projectId: projectId,
+      visitorId: visitorId,
+      sessionId: sessionId,
+      eventType: eventType || "pageview",
+      eventId: eventId,
+      pageUrl: location.href,
+      referrer: document.referrer || "",
+      screen: (screen.width || 0) + "x" + (screen.height || 0),
+      utm_source: new URLSearchParams(location.search).get("utm_source") || "",
+      utm_medium: new URLSearchParams(location.search).get("utm_medium") || "",
+      utm_campaign: new URLSearchParams(location.search).get("utm_campaign") || ""
+    };
+
+    if (extra && typeof extra === "object") {
+      for (var k in extra) {
+        if (Object.prototype.hasOwnProperty.call(extra, k)) {
+          payload[k] = extra[k];
+        }
+      }
+    }
+
+    try {
+      fetch(endpoint, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(function () {});
+    } catch (_) {}
+    return eventId;
+  }
+
+  // 4. Determine Initial Page Event (pageview vs thank-you page lead)
+  var isThankYouPage = false;
+  var path = location.pathname.toLowerCase();
+  if (
+    scriptEventType === "lead" ||
+    path.indexOf("/3zx0t3gz") !== -1 ||
+    /(thank|thanks|success|confirmed|confirmation)/i.test(path)
+  ) {
+    isThankYouPage = true;
+  }
+
+  var leadSentKey = "vt_lead_sent_" + projectId;
+  if (isThankYouPage) {
+    var alreadySent = false;
+    try {
+      alreadySent = !!sessionStorage.getItem(leadSentKey);
+    } catch (_) {}
+
+    if (!alreadySent) {
+      sendBeacon("lead");
+      try {
+        sessionStorage.setItem(leadSentKey, "1");
+      } catch (_) {}
+    } else {
+      // If refreshed, send a pageview so page views are counted without duplicating leads
+      sendBeacon("pageview");
+    }
+  } else {
+    // Standard landing page pageview
+    sendBeacon("pageview");
+  }
+
+  // 5. FlexiFunnels Form Interception (on Landing Page)
+  var leadDispatched = false;
+  function triggerLead(source) {
+    if (leadDispatched) return;
+    leadDispatched = true;
+    sendBeacon("lead", { leadSource: source || "form" });
+    try {
+      sessionStorage.setItem(leadSentKey, "1");
+    } catch (_) {}
+  }
+
+  // Hook standard DOM submit
+  document.addEventListener("submit", function () {
+    triggerLead("submit");
+  }, true);
+
+  // Hook FlexiFunnels submit buttons
+  document.addEventListener("click", function (e) {
+    try {
+      var target = e.target;
+      if (!target) return;
+      var btn = target.closest ? target.closest("button[type='submit'], input[type='submit'], .flexi-submit-btn, [data-form-submit]") : null;
+      if (btn) {
+        triggerLead("click");
+      }
+    } catch (_) {}
+  }, true);
+
+  // Hook jQuery ajaxSuccess for FlexiFunnels ft-control.js
+  if (typeof window.jQuery !== "undefined") {
+    try {
+      window.jQuery(document).ajaxSuccess(function (evt, xhr, settings) {
+        if (settings && settings.url && (
+          settings.url.indexOf("contact_submission") !== -1 ||
+          settings.url.indexOf("lead") !== -1 ||
+          settings.url.indexOf("form") !== -1 ||
+          settings.url.indexOf("admin-ajax") !== -1
+        )) {
+          triggerLead("ajaxSuccess");
+        }
+      });
+    } catch (_) {}
+  }
+
+  // 6. Global Helper for manual invocation
+  window.VisitorTracker = {
+    trackLead: function (extra) {
+      triggerLead("manual");
+    },
+    trackPageView: function (extra) {
+      sendBeacon("pageview", extra);
+    },
+    getVisitorId: function () { return visitorId; },
+    getSessionId: function () { return sessionId; }
+  };
 })();
 `;
 
@@ -151,14 +322,15 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
+    const cleanPath = path.replace(/\/+$/, "") || "/";
     const method = request.method;
 
     try {
-      if (path === "/health" && method === "GET") {
+      if (cleanPath === "/health" && method === "GET") {
         return json({ ok: true, service: "visitor-tracker" });
       }
 
-      if (path === "/tracker.js" && method === "GET") {
+      if (cleanPath === "/tracker.js" && method === "GET") {
         return new Response(trackerJS, {
           headers: {
             "Content-Type": "application/javascript; charset=utf-8",
@@ -168,9 +340,8 @@ export default {
         });
       }
 
-      // Public collection endpoint. IP is read from Cloudflare's edge header,
-      // never from visitor-supplied JSON. Supports CORS preflight (OPTIONS).
-      if (path === "/collect") {
+      // Public collection endpoint
+      if (cleanPath === "/collect") {
         const originHeader = request.headers.get("Origin") || "*";
         const corsHeaders = {
           "Access-Control-Allow-Origin": originHeader,
@@ -211,14 +382,14 @@ export default {
           "SELECT id, allowed_origin FROM projects WHERE id = ? AND active = 1"
         ).bind(body.projectId).first();
 
-        if (!project || origin.toLowerCase() !== project.allowed_origin.toLowerCase()) {
+        if (!project || !originsMatch(origin, project.allowed_origin)) {
           return new Response(null, { status: 204, headers: corsHeaders });
         }
 
         let page;
         try {
           page = new URL(body.pageUrl);
-          if (page.origin.toLowerCase() !== project.allowed_origin.toLowerCase()) throw new Error("origin mismatch");
+          if (!originsMatch(page.origin, project.allowed_origin)) throw new Error("origin mismatch");
         } catch {
           return new Response(null, { status: 204, headers: corsHeaders });
         }
@@ -231,15 +402,27 @@ export default {
           request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
           "127.0.0.1";
 
+        const eventType = body.eventType === "lead" ? "lead" : "pageview";
+        const eventId = typeof body.eventId === "string" && body.eventId.length >= 8
+          ? body.eventId.slice(0, 100)
+          : crypto.randomUUID();
+        const sessionId = typeof body.sessionId === "string" && body.sessionId.length >= 8
+          ? body.sessionId.slice(0, 100)
+          : null;
+
         await env.DB.prepare(`
-          INSERT INTO visits (
-            project_id, visitor_id, ip_address, device, browser,
+          INSERT OR IGNORE INTO visits (
+            project_id, visitor_id, session_id, event_type, event_id,
+            ip_address, device, browser,
             operating_system, country, region, city, page_url,
             referrer, screen_resolution, utm_source, utm_medium, utm_campaign
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           project.id,
           body.visitorId,
+          sessionId,
+          eventType,
+          eventId,
           ip,
           info.device,
           info.browser,
@@ -258,13 +441,26 @@ export default {
         return new Response(null, { status: 204, headers: corsHeaders });
       }
 
-      if (path === "/api/login" && method === "POST") {
-        if (!env.ADMIN_PASSWORD || !env.SESSION_SECRET) {
-          return json({ error: "Set ADMIN_PASSWORD and SESSION_SECRET first" }, 500);
+      if (cleanPath === "/api/login") {
+        if (method === "OPTIONS") {
+          return new Response(null, {
+            status: 204,
+            headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "POST, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
+          });
+        }
+        if (method !== "POST") {
+          return json({ error: "Method not allowed" }, 405);
+        }
+        if (!env.ADMIN_PASSWORD || !env.SESSION_SECRET || env.SESSION_SECRET.length < 16) {
+          return json({ error: "Set ADMIN_PASSWORD and strong SESSION_SECRET (at least 16 chars) first" }, 500);
         }
         let body;
-        try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
-        if (typeof body.password !== "string" || body.password !== env.ADMIN_PASSWORD) {
+        try { body = await request.json(); } catch { return json({ error: "Invalid JSON in request body" }, 400); }
+        if (typeof body.password !== "string" || !timingSafeEqual(body.password, env.ADMIN_PASSWORD)) {
           return json({ error: "Incorrect password" }, 401);
         }
         const token = await sign({
@@ -274,14 +470,26 @@ export default {
         return json({ token });
       }
 
-      if (path.startsWith("/api/")) {
+      if (cleanPath.startsWith("/api/")) {
+        if (method === "OPTIONS") {
+          return new Response(null, {
+            status: 204,
+            headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
+          });
+        }
         const auth = await requireAdmin(request, env);
         if (!auth) return json({ error: "Unauthorized" }, 401);
       }
 
-      if (path === "/api/projects" && method === "GET") {
+      if (cleanPath === "/api/projects" && method === "GET") {
         const result = await env.DB.prepare(`
           SELECT p.*,
+            (SELECT COUNT(*) FROM visits v WHERE v.project_id=p.id AND (v.event_type = 'pageview' OR v.event_type IS NULL)) AS total_pageviews,
+            (SELECT COUNT(*) FROM visits v WHERE v.project_id=p.id AND v.event_type = 'lead') AS total_leads,
             (SELECT COUNT(*) FROM visits v WHERE v.project_id=p.id) AS total_visits,
             (SELECT COUNT(DISTINCT visitor_id) FROM visits v WHERE v.project_id=p.id) AS unique_visitors
           FROM projects p ORDER BY p.created_at DESC
@@ -289,9 +497,9 @@ export default {
         return json(result.results);
       }
 
-      if (path === "/api/projects" && method === "POST") {
+      if (cleanPath === "/api/projects" && method === "POST") {
         let body;
-        try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
+        try { body = await request.json(); } catch { return json({ error: "Invalid JSON in request body" }, 400); }
         if (!body.name || !body.landingUrl) {
           return json({ error: "Project name and landing URL are required" }, 400);
         }
@@ -318,17 +526,17 @@ export default {
         return json({ id, name: safeText(body.name, 150), landingUrl: landing.href });
       }
 
-      if (path.startsWith("/api/projects/") && method === "PATCH") {
-        const id = path.split("/").pop();
+      if (cleanPath.startsWith("/api/projects/") && method === "PATCH") {
+        const id = cleanPath.split("/").pop();
         let body;
-        try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
+        try { body = await request.json(); } catch { return json({ error: "Invalid JSON in request body" }, 400); }
         await env.DB.prepare(
           "UPDATE projects SET active = ? WHERE id = ?"
         ).bind(body.active ? 1 : 0, id).run();
         return json({ success: true });
       }
 
-      if (path === "/api/stats" && method === "GET") {
+      if (cleanPath === "/api/stats" && method === "GET") {
         const projectId = url.searchParams.get("projectId") || "";
         const days = Math.min(365, Math.max(1, Number(url.searchParams.get("days") || 7)));
         if (!/^[a-f0-9-]{16,64}$/i.test(projectId)) {
@@ -338,24 +546,33 @@ export default {
 
         const stats = await env.DB.prepare(`
           SELECT
+            COUNT(CASE WHEN event_type = 'pageview' OR event_type IS NULL THEN 1 END) AS total_pageviews,
+            COUNT(CASE WHEN event_type = 'lead' THEN 1 END) AS total_leads,
             COUNT(*) AS total_visits,
             COUNT(DISTINCT visitor_id) AS unique_visitors,
+            COUNT(DISTINCT COALESCE(session_id, visitor_id)) AS total_sessions,
             COUNT(DISTINCT ip_address) AS unique_ips,
             COUNT(DISTINCT CASE WHEN date(visited_at) = date('now') THEN visitor_id END) AS today_visitors,
-            COUNT(CASE WHEN date(visited_at) = date('now') THEN 1 END) AS today_visits,
+            COUNT(CASE WHEN date(visited_at) = date('now') AND (event_type = 'pageview' OR event_type IS NULL) THEN 1 END) AS today_pageviews,
+            COUNT(CASE WHEN date(visited_at) = date('now') AND event_type = 'lead' THEN 1 END) AS today_leads,
             (
-              SELECT COUNT(DISTINCT v2.visitor_id)
-              FROM visits v2
-              WHERE v2.project_id = ?
-                AND datetime(v2.visited_at) >= datetime(?)
-                AND (
-                  SELECT COUNT(*) FROM visits v3
-                  WHERE v3.project_id = v2.project_id AND v3.visitor_id = v2.visitor_id
-                ) > 1
+              SELECT COUNT(DISTINCT visitor_id) FROM visits
+              WHERE project_id = ?
+                AND datetime(visited_at) >= datetime(?)
+                AND visitor_id IN (
+                  SELECT visitor_id FROM visits
+                  WHERE project_id = ?
+                  GROUP BY visitor_id
+                  HAVING COUNT(DISTINCT session_id) > 1 OR (COUNT(DISTINCT session_id) = 0 AND COUNT(*) > 1)
+                )
             ) AS returning_visitors
           FROM visits
           WHERE project_id = ? AND datetime(visited_at) >= datetime(?)
-        `).bind(projectId, since, projectId, since).first();
+        `).bind(projectId, since, projectId, projectId, since).first();
+
+        const uVisitors = Number(stats?.unique_visitors || 0);
+        const tLeads = Number(stats?.total_leads || 0);
+        const conversionRate = uVisitors > 0 ? Number(((tLeads / uVisitors) * 100).toFixed(2)) : 0;
 
         const devices = await env.DB.prepare(`
           SELECT device, COUNT(*) AS total
@@ -376,21 +593,39 @@ export default {
         `).bind(projectId, since).all();
 
         const daily = await env.DB.prepare(`
-          SELECT substr(visited_at,1,10) AS date, COUNT(*) AS total
+          SELECT
+            substr(visited_at,1,10) AS date,
+            COUNT(CASE WHEN event_type = 'pageview' OR event_type IS NULL THEN 1 END) AS pageviews,
+            COUNT(CASE WHEN event_type = 'lead' THEN 1 END) AS leads,
+            COUNT(DISTINCT visitor_id) AS unique_visitors,
+            COUNT(*) AS total
           FROM visits WHERE project_id = ? AND datetime(visited_at) >= datetime(?)
           GROUP BY date ORDER BY date DESC
         `).bind(projectId, since).all();
 
+        const recentLeads = await env.DB.prepare(`
+          SELECT id, visitor_id, session_id, ip_address, device, browser,
+                 operating_system, country, region, city, page_url, visited_at
+          FROM visits
+          WHERE project_id = ? AND event_type = 'lead'
+          ORDER BY visited_at DESC
+          LIMIT 50
+        `).bind(projectId).all();
+
         return json({
-          stats,
+          stats: {
+            ...stats,
+            conversion_rate: conversionRate
+          },
           devices: devices.results,
           browsers: browsers.results,
           operatingSystems: operatingSystems.results,
-          daily: daily.results
+          daily: daily.results,
+          recentLeads: recentLeads.results
         });
       }
 
-      if (path === "/api/visitors" && method === "GET") {
+      if (cleanPath === "/api/visitors" && method === "GET") {
         const projectId = url.searchParams.get("projectId") || "";
         const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") || 100)));
         if (!/^[a-f0-9-]{16,64}$/i.test(projectId)) {
@@ -408,7 +643,10 @@ export default {
             MAX(city) AS city,
             MIN(visited_at) AS first_visit,
             MAX(visited_at) AS last_visit,
-            COUNT(*) AS total_visits
+            COUNT(*) AS total_visits,
+            COUNT(CASE WHEN event_type = 'pageview' OR event_type IS NULL THEN 1 END) AS pageviews,
+            COUNT(CASE WHEN event_type = 'lead' THEN 1 END) AS leads,
+            COUNT(DISTINCT COALESCE(session_id, visitor_id)) AS sessions
           FROM visits
           WHERE project_id = ?
           GROUP BY visitor_id, ip_address
@@ -419,7 +657,7 @@ export default {
         return json(result.results);
       }
 
-      if (path === "/" || path === "/admin" || path === "/admin.html") {
+      if (cleanPath === "/" || cleanPath === "/admin" || cleanPath === "/admin.html") {
         return env.ASSETS.fetch(new Request(new URL("/admin.html", request.url)));
       }
 

@@ -13,17 +13,22 @@ button:hover{background:#5546e8}
 button:disabled{opacity:.5;cursor:not-allowed}
 input,select{background:#151d31;border:1px solid #2b3650;color:white;padding:11px 13px;border-radius:8px;width:100%;margin:6px 0;transition:border-color .15s}
 input:focus,select:focus{outline:0;border-color:#6658ef}
-.wrap{max-width:1280px;margin:auto;padding:28px 24px}
+.wrap{max-width:1340px;margin:auto;padding:28px 24px}
 header{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;border-bottom:1px solid #1c263c;padding-bottom:18px}
 h1{font-size:24px;margin:0;letter-spacing:-.5px}
 h2{font-size:17px;margin:0 0 14px 0;letter-spacing:-.3px}
 .muted{color:#8d9bb4;font-size:13px}
 .card{background:#131b2e;border:1px solid #232f48;border-radius:12px;padding:20px;margin-top:18px}
-.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.grid-7{display:grid;grid-template-columns:repeat(7,1fr);gap:12px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.metric{background:#18233b;padding:16px 18px;border-radius:10px;border:1px solid #26344f}
-.metric .label{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#8d9bb4;font-weight:600}
-.metric strong{font-size:26px;display:block;margin-top:8px;color:#fff;font-weight:700}
+.metric{background:#18233b;padding:16px 18px;border-radius:10px;border:1px solid #26344f;display:flex;flex-direction:column;justify-content:space-between}
+.metric .label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#8d9bb4;font-weight:600}
+.metric strong{font-size:26px;display:block;margin-top:6px;color:#fff;font-weight:700}
+.metric .sub{font-size:12px;color:#8d9bb4;margin-top:6px}
+.metric-highlight{background:linear-gradient(145deg, #18233b, #19382f);border-color:#205e45}
+.metric-highlight strong{color:#2ed573}
+.metric-leads{background:linear-gradient(145deg, #18233b, #2b2254);border-color:#53439b}
+.metric-leads strong{color:#a29bfe}
 .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
 .secondary{background:#26344f}
 .secondary:hover{background:#304163}
@@ -41,13 +46,14 @@ tr:hover td{background:#162035}
 .badge-active{background:rgba(46,213,115,.15);color:#2ed573}
 .badge-inactive{background:rgba(255,71,87,.15);color:#ff4757}
 .badge-info{background:rgba(102,88,239,.15);color:#9d95f8}
+.badge-lead{background:rgba(46,213,115,.2);color:#2ed573;border:1px solid rgba(46,213,115,.4)}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090e1a;padding:14px;border-radius:8px;color:#9ee6bd;font-size:12px;font-family:Consolas,Monaco,monospace;margin:10px 0;border:1px solid #1a253b}
 .bar-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1c273e;font-size:13px}
 .bar-row:last-child{border-bottom:0}
-.tag-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.tag{background:#18233b;border:1px solid #26344f;padding:6px 12px;border-radius:7px;font-size:12px}
-@media(max-width:960px){.grid-5{grid-template-columns:repeat(3,1fr)}.grid-3{grid-template-columns:1fr}}
-@media(max-width:600px){.grid-5{grid-template-columns:repeat(2,1fr)}.wrap{padding:16px 12px}}
+.tab-btn{background:transparent;border:1px solid #2b3650;color:#8d9bb4;padding:8px 14px;border-radius:6px;font-size:13px}
+.tab-btn.active{background:#6658ef;color:#fff;border-color:#6658ef}
+@media(max-width:1100px){.grid-7{grid-template-columns:repeat(4,1fr)}.grid-3{grid-template-columns:1fr}}
+@media(max-width:700px){.grid-7{grid-template-columns:repeat(2,1fr)}.wrap{padding:16px 12px}}
 </style>
 </head>
 <body>
@@ -65,8 +71,8 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090e1a;padding:14px;
 <div id="app" class="wrap hidden">
   <header>
     <div>
-      <h1>Visitor Analytics Dashboard</h1>
-      <p class="muted" style="margin:4px 0 0 0">Real-time visitor tracking for landing pages & FlexiFunnels</p>
+      <h1>Visitor Analytics & Lead Tracking Dashboard</h1>
+      <p class="muted" style="margin:4px 0 0 0">Real-time visitor tracking and FlexiFunnels lead conversion metrics</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
       <span class="badge badge-info">Admin Connected</span>
@@ -115,26 +121,44 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090e1a;padding:14px;
           <strong id="curProjectName" style="font-size:16px"></strong>
           <span id="curProjectStatus" class="badge badge-active" style="margin-left:8px"></span>
           <div class="muted" style="margin-top:4px">
-            Landing URL: <a id="curLandingUrl" href="#" target="_blank" style="color:#9d95f8;text-decoration:none"></a>
+            Landing URL: <a id="curLandingUrl" href="#" target="_blank" rel="noopener noreferrer" style="color:#9d95f8;text-decoration:none"></a>
             &bull; Allowed Origin: <code id="curAllowedOrigin" style="color:#9ee6bd"></code>
           </div>
         </div>
         <div style="display:flex;gap:8px">
           <button id="toggleActiveBtn" class="secondary" onclick="toggleProjectStatus()">Toggle Status</button>
-          <button class="secondary" onclick="toggleScriptBox()">Tracking Code Snippet</button>
+          <button class="secondary" onclick="toggleScriptBox()">Tracking Code Snippets</button>
         </div>
       </div>
 
       <div id="scriptBox" class="hidden" style="margin-top:14px">
-        <div style="background:#090e1a;padding:12px;border-radius:8px;border:1px solid #1a253b">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span class="muted" style="font-size:12px">Embed snippet into your website / FlexiFunnels Head section:</span>
-            <button onclick="copyScript()" style="padding:6px 12px;font-size:12px" id="copyBtn">Copy Tracking Script</button>
+        <div style="background:#090e1a;padding:14px;border-radius:8px;border:1px solid #1a253b">
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <button id="tabLandingBtn" class="tab-btn active" onclick="switchSnippetTab('landing')">1. Landing Page Script</button>
+            <button id="tabThankYouBtn" class="tab-btn" onclick="switchSnippetTab('thankyou')">2. Thank You Page Script (Guaranteed Leads)</button>
           </div>
-          <pre id="scriptText"></pre>
-          <p class="muted" style="margin:4px 0 0 0;font-size:12px">
-            <strong>FlexiFunnels:</strong> In your page editor, go to Page Settings &gt; Custom Code / Tracking &gt; Header Code, paste the script above and publish.
-          </p>
+
+          <div id="landingSnippetView">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="muted" style="font-size:12px">Embed into your main Landing Page Head (FlexiFunnels / Custom):</span>
+              <button onclick="copyScript('scriptTextLanding', 'copyBtn1')" style="padding:6px 12px;font-size:12px" id="copyBtn1">Copy Landing Script</button>
+            </div>
+            <pre id="scriptTextLanding"></pre>
+            <p class="muted" style="margin:4px 0 0 0;font-size:12px">
+              Tracks pageviews, unique visitors, sessions, device/OS, and automatically captures FlexiFunnels form submissions.
+            </p>
+          </div>
+
+          <div id="thankyouSnippetView" class="hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="muted" style="font-size:12px">Embed into your Thank You / Success Page Head (e.g. /3zx0t3gz):</span>
+              <button onclick="copyScript('scriptTextThankYou', 'copyBtn2')" style="padding:6px 12px;font-size:12px" id="copyBtn2">Copy Thank You Script</button>
+            </div>
+            <pre id="scriptTextThankYou"></pre>
+            <p class="muted" style="margin:4px 0 0 0;font-size:12px">
+              <strong>100% Reliable Conversion Tracking:</strong> When visitors complete the form and FlexiFunnels redirects to this page, a verified <code>lead</code> conversion is recorded and linked to the visitor's session. Deduplication prevents multiple leads if refreshed.
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -142,7 +166,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090e1a;padding:14px;
 
   <!-- Analytics Section -->
   <div id="analytics" class="hidden">
-    <!-- Overview Metric Cards -->
+    <!-- Overview Metric Cards (7 Distinct Metrics) -->
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
         <h2 style="margin:0">Analytics Overview</h2>
@@ -157,27 +181,71 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090e1a;padding:14px;
         </div>
       </div>
 
-      <div class="grid-5">
+      <div class="grid-7">
         <div class="metric">
-          <div class="label">Total Visits</div>
-          <strong id="total">0</strong>
+          <div class="label">Total Page Views</div>
+          <strong id="totalPageviews">0</strong>
+          <div class="sub">Today: <span id="todayPageviews" style="color:#fff">0</span></div>
         </div>
         <div class="metric">
           <div class="label">Unique Visitors</div>
-          <strong id="unique">0</strong>
-        </div>
-        <div class="metric">
-          <div class="label">Today's Visitors</div>
-          <strong id="today">0</strong>
+          <strong id="uniqueVisitors">0</strong>
+          <div class="sub">Today: <span id="todayVisitors" style="color:#fff">0</span></div>
         </div>
         <div class="metric">
           <div class="label">Returning Visitors</div>
-          <strong id="returning">0</strong>
+          <strong id="returningVisitors">0</strong>
+          <div class="sub">Repeat visitors</div>
+        </div>
+        <div class="metric">
+          <div class="label">Total Sessions</div>
+          <strong id="totalSessions">0</strong>
+          <div class="sub">30-min active periods</div>
         </div>
         <div class="metric">
           <div class="label">Unique IPs</div>
-          <strong id="ips">0</strong>
+          <strong id="uniqueIps">0</strong>
+          <div class="sub">Distinct edge IPs</div>
         </div>
+        <div class="metric metric-leads">
+          <div class="label">Total Leads</div>
+          <strong id="totalLeads">0</strong>
+          <div class="sub">Today: <span id="todayLeads" style="color:#fff">0</span></div>
+        </div>
+        <div class="metric metric-highlight">
+          <div class="label">Conversion Rate</div>
+          <strong id="conversionRate">0.0%</strong>
+          <div class="sub">Leads / Unique Visitors</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dedicated Leads & Conversions Section -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="margin:0">Recent Leads & Conversions</h2>
+          <p class="muted" style="margin:4px 0 0 0">Verified FlexiFunnels form submissions and Thank You page completions</p>
+        </div>
+        <div id="leadsBadgeCount" class="badge badge-lead" style="font-size:13px;padding:6px 12px">0 Leads Recorded</div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Conversion Time</th>
+              <th>Visitor ID</th>
+              <th>IP Address</th>
+              <th>Device / Browser</th>
+              <th>Location</th>
+              <th>Conversion URL</th>
+            </tr>
+          </thead>
+          <tbody id="leadRows">
+            <tr><td colspan="6" style="text-align:center;padding:24px" class="muted">No leads recorded in this period yet.</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -197,9 +265,9 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090e1a;padding:14px;
       </div>
     </div>
 
-    <!-- Daily Visitor Statistics -->
+    <!-- Daily Visitor & Lead Statistics -->
     <div class="card">
-      <h2>Date-wise Visitor Statistics</h2>
+      <h2>Date-wise Visitor & Lead Statistics</h2>
       <div id="daily" class="muted">No data yet.</div>
     </div>
 
@@ -208,7 +276,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090e1a;padding:14px;
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="margin:0">Visitor Records</h2>
-          <p class="muted" style="margin:4px 0 0 0">Detailed visitor logs with device, browser, OS, and location</p>
+          <p class="muted" style="margin:4px 0 0 0">Detailed visitor profiles with pageviews, leads, device, browser, and location</p>
         </div>
         <input id="search" placeholder="Search by IP, Visitor ID, OS, Browser, Location..." oninput="renderVisitors()" style="max-width:320px;margin:0">
       </div>
@@ -223,13 +291,15 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090e1a;padding:14px;
               <th>Browser</th>
               <th>Operating System</th>
               <th>Approx. Location</th>
-              <th>Total Visits</th>
+              <th>Pageviews</th>
+              <th>Leads</th>
+              <th>Sessions</th>
               <th>First Visit</th>
               <th>Last Visit</th>
             </tr>
           </thead>
           <tbody id="visitorRows">
-            <tr><td colspan="9" style="text-align:center;padding:24px" class="muted">No visitor records found.</td></tr>
+            <tr><td colspan="11" style="text-align:center;padding:24px" class="muted">No visitor records found.</td></tr>
           </tbody>
         </table>
       </div>
@@ -243,6 +313,7 @@ let token = sessionStorage.getItem("vt_token") || "";
 let projectsList = [];
 let currentProject = null;
 let visitors = [];
+let leadsList = [];
 
 const $ = id => document.getElementById(id);
 
@@ -250,21 +321,52 @@ $("password").addEventListener("keydown", function(e) {
   if (e.key === "Enter") login();
 });
 
+function parseJson(text) {
+  if (!text || typeof text !== "string") return null;
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) {
+    return null;
+  }
+}
+
+let dashboardAbortController = null;
+
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + token,
-      ...(options.headers || {})
-    }
-  });
-  const data = await response.json();
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token,
+        ...(options.headers || {})
+      }
+    });
+  } catch (netErr) {
+    if (netErr.name === "AbortError") throw netErr;
+    throw new Error("Unable to reach server. Please check your network connection.");
+  }
+
+  const rawText = await response.text();
+  const data = parseJson(rawText);
+
   if (response.status === 401) {
     logout();
-    throw new Error("Session expired. Please log in again.");
+    throw new Error("Session expired. Please sign in again.");
   }
-  if (!response.ok) throw new Error(data.error || "Request failed");
+
+  if (!response.ok) {
+    const errorMsg = data && data.error ? data.error : "Request failed (HTTP " + response.status + ")";
+    throw new Error(errorMsg);
+  }
+
+  if (data === null) {
+    throw new Error("Server returned non-JSON response (HTTP " + response.status + ")");
+  }
+
   return data;
 }
 
@@ -272,22 +374,38 @@ async function login() {
   $("loginError").textContent = "";
   const pw = $("password").value;
   if (!pw) {
-    $("loginError").textContent = "Please enter password";
+    $("loginError").textContent = "Please enter your admin password";
     return;
   }
   try {
-    const r = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pw })
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Login failed");
+    let r;
+    try {
+      r = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw })
+      });
+    } catch (netErr) {
+      throw new Error("Cannot reach server at " + location.origin + ". Is Wrangler running?");
+    }
+
+    const raw = await r.text();
+    const d = parseJson(raw);
+
+    if (!r.ok) {
+      const errMsg = d && d.error ? d.error : (r.status === 401 ? "Incorrect password" : "Login error (HTTP " + r.status + ")");
+      throw new Error(errMsg);
+    }
+
+    if (!d || !d.token) {
+      throw new Error("No authentication token received from server. Please try again.");
+    }
+
     token = d.token;
     sessionStorage.setItem("vt_token", token);
     openApp();
   } catch (e) {
-    $("loginError").textContent = e.message;
+    $("loginError").textContent = e.message || "Login failed";
   }
 }
 
@@ -329,17 +447,18 @@ async function createProject() {
       body: JSON.stringify({ name, landingUrl })
     });
     hideCreate();
-    await loadProjects();
-    $("projectSelect").value = d.id;
-    onProjectSelectChange();
+    await loadProjects(d.id);
     $("scriptBox").classList.remove("hidden");
   } catch (e) {
     alert(e.message);
   }
 }
 
-function getTrackingSnippet(projectId) {
+function getTrackingSnippet(projectId, type) {
   const closing = "</" + "script>";
+  if (type === "thankyou") {
+    return '<script src="' + location.origin + '/tracker.js" data-project-id="' + projectId + '" data-event-type="lead" async>' + closing;
+  }
   return '<script src="' + location.origin + '/tracker.js" data-project-id="' + projectId + '" async>' + closing;
 }
 
@@ -347,10 +466,24 @@ function toggleScriptBox() {
   $("scriptBox").classList.toggle("hidden");
 }
 
-async function copyScript() {
-  const code = $("scriptText").textContent;
+function switchSnippetTab(tab) {
+  if (tab === "landing") {
+    $("tabLandingBtn").classList.add("active");
+    $("tabThankYouBtn").classList.remove("active");
+    $("landingSnippetView").classList.remove("hidden");
+    $("thankyouSnippetView").classList.add("hidden");
+  } else {
+    $("tabLandingBtn").classList.remove("active");
+    $("tabThankYouBtn").classList.add("active");
+    $("landingSnippetView").classList.add("hidden");
+    $("thankyouSnippetView").classList.remove("hidden");
+  }
+}
+
+async function copyScript(elemId, btnId) {
+  const code = $(elemId).textContent;
   await navigator.clipboard.writeText(code);
-  const btn = $("copyBtn");
+  const btn = $(btnId);
   const orig = btn.textContent;
   btn.textContent = "Copied!";
   setTimeout(() => { btn.textContent = orig; }, 2000);
@@ -366,7 +499,7 @@ async function toggleProjectStatus() {
     });
     currentProject.active = newStatus ? 1 : 0;
     updateProjectHeader();
-    await loadProjects(false);
+    await loadProjects(currentProject.id);
   } catch (e) {
     alert(e.message);
   }
@@ -394,15 +527,27 @@ function updateProjectHeader() {
     $("toggleActiveBtn").textContent = "Activate Project";
   }
 
-  $("scriptText").textContent = getTrackingSnippet(currentProject.id);
+  $("scriptTextLanding").textContent = getTrackingSnippet(currentProject.id, "landing");
+  $("scriptTextThankYou").textContent = getTrackingSnippet(currentProject.id, "thankyou");
 }
 
-async function loadProjects(resetSelect = true) {
+function getTargetProjectId(projects, preferredId) {
+  if (!projects || projects.length === 0) return "";
+  if (preferredId && projects.some(p => p.id === preferredId)) return preferredId;
+  const urlParam = new URLSearchParams(location.search).get("projectId");
+  if (urlParam && projects.some(p => p.id === urlParam)) return urlParam;
+  const savedId = localStorage.getItem("vt_selected_project");
+  if (savedId && projects.some(p => p.id === savedId)) return savedId;
+  const defaultFlexiId = "7d37033e73c74ca1ae242882057ed346";
+  if (projects.some(p => p.id === defaultFlexiId)) return defaultFlexiId;
+  return projects[0].id;
+}
+
+async function loadProjects(preferredId) {
   try {
     const data = await api("/api/projects");
     projectsList = data;
     const select = $("projectSelect");
-    const oldVal = select.value;
     select.innerHTML = '<option value="">Select a Project...</option>';
     data.forEach(p => {
       const o = document.createElement("option");
@@ -411,14 +556,13 @@ async function loadProjects(resetSelect = true) {
       select.appendChild(o);
     });
     $("projectsCount").textContent = data.length + " project(s) configured";
-    if (resetSelect && data.some(p => p.id === oldVal)) {
-      select.value = oldVal;
-    } else if (resetSelect && !select.value && data.length > 0) {
-      select.value = data[0].id;
+    const targetId = getTargetProjectId(data, preferredId);
+    if (targetId) {
+      select.value = targetId;
     }
     onProjectSelectChange();
   } catch (e) {
-    console.error(e);
+    if (e.name !== "AbortError") console.error(e);
   }
 }
 
@@ -430,6 +574,14 @@ function onProjectSelectChange() {
     $("analytics").classList.add("hidden");
     return;
   }
+  localStorage.setItem("vt_selected_project", id);
+  try {
+    const curUrl = new URL(location.href);
+    if (curUrl.searchParams.get("projectId") !== id) {
+      curUrl.searchParams.set("projectId", id);
+      history.replaceState(null, "", curUrl.pathname + curUrl.search);
+    }
+  } catch (_) {}
   currentProject = projectsList.find(p => p.id === id) || null;
   updateProjectHeader();
   loadDashboard();
@@ -443,19 +595,40 @@ async function loadDashboard() {
   }
   $("analytics").classList.remove("hidden");
 
+  if (dashboardAbortController) {
+    dashboardAbortController.abort();
+  }
+  dashboardAbortController = new AbortController();
+  const signal = dashboardAbortController.signal;
+
   try {
     const days = $("days").value;
     const [data, rows] = await Promise.all([
-      api("/api/stats?projectId=" + encodeURIComponent(id) + "&days=" + days),
-      api("/api/visitors?projectId=" + encodeURIComponent(id))
+      api("/api/stats?projectId=" + encodeURIComponent(id) + "&days=" + days, { signal }),
+      api("/api/visitors?projectId=" + encodeURIComponent(id), { signal })
     ]);
 
     const s = data.stats || {};
-    $("total").textContent = Number(s.total_visits || 0).toLocaleString();
-    $("unique").textContent = Number(s.unique_visitors || 0).toLocaleString();
-    $("today").textContent = Number(s.today_visitors || 0).toLocaleString();
-    $("returning").textContent = Number(s.returning_visitors || 0).toLocaleString();
-    $("ips").textContent = Number(s.unique_ips || 0).toLocaleString();
+    $("totalPageviews").textContent = Number(s.total_pageviews || 0).toLocaleString();
+    $("todayPageviews").textContent = Number(s.today_pageviews || 0).toLocaleString();
+    
+    $("uniqueVisitors").textContent = Number(s.unique_visitors || 0).toLocaleString();
+    $("todayVisitors").textContent = Number(s.today_visitors || 0).toLocaleString();
+    
+    $("returningVisitors").textContent = Number(s.returning_visitors || 0).toLocaleString();
+    $("totalSessions").textContent = Number(s.total_sessions || 0).toLocaleString();
+    $("uniqueIps").textContent = Number(s.unique_ips || 0).toLocaleString();
+    
+    const leads = Number(s.total_leads || 0);
+    $("totalLeads").textContent = leads.toLocaleString();
+    $("todayLeads").textContent = Number(s.today_leads || 0).toLocaleString();
+    $("leadsBadgeCount").textContent = leads + (leads === 1 ? " Lead Recorded" : " Leads Recorded");
+    
+    $("conversionRate").textContent = (s.conversion_rate != null ? s.conversion_rate : "0.0") + "%";
+
+    // Recent Leads
+    leadsList = data.recentLeads || [];
+    renderLeads();
 
     // Devices
     renderBreakdown("devices", data.devices, "device");
@@ -463,24 +636,48 @@ async function loadDashboard() {
     renderBreakdown("browsers", data.browsers, "browser");
     // Operating Systems
     renderBreakdown("operatingSystems", data.operatingSystems, "operating_system");
-    // Daily visits
+    // Daily visits & leads
     renderDaily(data.daily);
 
     visitors = rows || [];
     renderVisitors();
   } catch (e) {
+    if (e.name === "AbortError") return;
     alert("Error loading analytics: " + e.message);
   }
 }
 
+function renderLeads() {
+  const el = $("leadRows");
+  if (!leadsList || leadsList.length === 0) {
+    el.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px" class="muted">No leads recorded in this period yet. Embed the Thank You page tracking script on <code>https://join.affluentindianshub.com/3zx0t3gz</code> to track completions.</td></tr>';
+    return;
+  }
+  el.innerHTML = leadsList.map(l => {
+    const loc = [l.city, l.region, l.country].filter(Boolean).join(", ") || "-";
+    const dev = (l.device || "Desktop") + " / " + (l.browser || "Unknown");
+    return `
+      <tr>
+        <td><strong>${safe(date(l.visited_at))}</strong></td>
+        <td><code style="color:#a29bfe" title="${safe(l.visitor_id)}">${safe(l.visitor_id).slice(0, 16)}...</code></td>
+        <td><code>${safe(l.ip_address || "127.0.0.1")}</code></td>
+        <td><span class="badge badge-info">${safe(dev)}</span></td>
+        <td>${safe(loc)}</td>
+        <td><span class="muted" style="font-size:12px;word-break:break-all">${safe(l.page_url || "-")}</span></td>
+      </tr>
+    `;
+  }).join("");
+}
+
 function renderBreakdown(containerId, list, key) {
   const el = $(containerId);
-  if (!list || list.length === 0) {
+  const arr = Array.isArray(list) ? list : (list ? [list] : []);
+  if (!arr || arr.length === 0) {
     el.innerHTML = '<span class="muted">No data recorded in this period.</span>';
     return;
   }
-  const total = list.reduce((sum, item) => sum + (item.total || 0), 0);
-  el.innerHTML = list.map(item => {
+  const total = arr.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+  el.innerHTML = arr.map(item => {
     const name = safe(item[key] || "Unknown");
     const count = Number(item.total || 0);
     const pct = total > 0 ? Math.round((count / total) * 100) : 0;
@@ -495,17 +692,24 @@ function renderBreakdown(containerId, list, key) {
 
 function renderDaily(daily) {
   const el = $("daily");
-  if (!daily || daily.length === 0) {
+  const arr = Array.isArray(daily) ? daily : (daily ? [daily] : []);
+  if (!arr || arr.length === 0) {
     el.innerHTML = '<span class="muted">No visits recorded in this period.</span>';
     return;
   }
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));gap:10px">
-      ${daily.map(d => `
-        <div style="background:#18233b;padding:12px;border-radius:8px;border:1px solid #26344f">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:10px">
+      ${arr.map(d => `
+        <div style="background:#18233b;padding:12px 14px;border-radius:8px;border:1px solid #26344f">
           <div class="muted" style="font-size:12px">${safe(d.date)}</div>
-          <strong style="font-size:18px;color:#fff">${Number(d.total).toLocaleString()}</strong>
-          <span class="muted" style="font-size:12px"> visits</span>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">
+            <span style="font-size:20px;font-weight:700;color:#fff">${Number(d.pageviews || 0).toLocaleString()}</span>
+            <span class="muted" style="font-size:12px">views</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;border-top:1px solid #232f48;padding-top:4px">
+            <span style="font-size:14px;font-weight:600;color:#2ed573">${Number(d.leads || 0).toLocaleString()} leads</span>
+            <span class="muted" style="font-size:12px">${Number(d.unique_visitors || 0).toLocaleString()} unique</span>
+          </div>
         </div>
       `).join("")}
     </div>
@@ -521,7 +725,7 @@ function safe(v) {
 function date(v) {
   if (!v) return "-";
   const d = new Date(v.includes("Z") ? v : v.replace(" ", "T") + "Z");
-  return isNaN(d) ? "-" : d.toLocaleString();
+  return isNaN(d.getTime()) ? "-" : d.toLocaleString();
 }
 
 function renderVisitors() {
@@ -538,12 +742,16 @@ function renderVisitors() {
   $("visitorTableFooter").textContent = "Showing " + rows.length + " of " + visitors.length + " visitor/IP records.";
 
   if (rows.length === 0) {
-    $("visitorRows").innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px" class="muted">No matching visitor records.</td></tr>';
+    $("visitorRows").innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px" class="muted">No matching visitor records.</td></tr>';
     return;
   }
 
   $("visitorRows").innerHTML = rows.map(v => {
     const loc = [v.city, v.region, v.country].filter(Boolean).join(", ") || "-";
+    const leadCount = Number(v.leads || 0);
+    const leadBadge = leadCount > 0
+      ? `<span class="badge badge-lead">${leadCount} Lead${leadCount > 1 ? "s" : ""}</span>`
+      : `<span class="muted">0</span>`;
     return `
       <tr>
         <td><code>${safe(v.ip_address || "127.0.0.1")}</code></td>
@@ -552,7 +760,9 @@ function renderVisitors() {
         <td>${safe(v.browser || "Unknown")}</td>
         <td>${safe(v.operating_system || "Unknown")}</td>
         <td>${safe(loc)}</td>
-        <td><strong>${safe(v.total_visits)}</strong></td>
+        <td><strong>${Number(v.pageviews || v.total_visits || 0).toLocaleString()}</strong></td>
+        <td>${leadBadge}</td>
+        <td>${Number(v.sessions || 1).toLocaleString()}</td>
         <td><span class="muted">${safe(date(v.first_visit))}</span></td>
         <td><span class="muted">${safe(date(v.last_visit))}</span></td>
       </tr>
